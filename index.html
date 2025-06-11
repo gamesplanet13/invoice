@@ -1,0 +1,108 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Games Planet Invoice Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+    h2 { margin-bottom: 5px; }
+    textarea { width: 100%; height: 200px; margin-bottom: 10px; }
+    button { padding: 10px 15px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h2>Games Planet Final Invoice Generator</h2>
+  <textarea id="inputText" placeholder="Paste order details here..."></textarea>
+  <br>
+  <button onclick="generatePDF()">Download Invoice as PDF</button>
+  <svg id="barcode" style="display: none;"></svg>
+
+  <script>
+    async function generatePDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const input = document.getElementById('inputText').value.split('\n');
+      const data = {};
+      input.forEach(line => {
+        const [key, ...rest] = line.split(':');
+        if (key && rest.length) data[key.trim()] = rest.join(':').trim();
+      });
+
+      const awb = data['AWB'] || 'Pending';
+      const trackingURL = awb !== 'Pending' ? `https://www.delhivery.com/track/package/${awb}` : 'Not Generated Yet';
+
+      doc.setFontSize(14);
+      doc.text("GAMES PLANET", 105, 15, { align: "center" });
+      doc.setFontSize(10);
+      doc.text("Rampur, Uttar Pradesh - 244901", 105, 22, { align: "center" });
+      doc.text("Email: gamesplanet.7983624797@gmail.com | Phone: 7983624797", 105, 28, { align: "center" });
+
+      doc.setFontSize(12);
+      doc.text("TAX INVOICE", 105, 36, { align: "center" });
+
+      doc.setFontSize(10);
+      doc.text(`Order ID: ${data['Order ID'] || ''}`, 14, 50);
+      doc.text(`AWB Number: ${awb}`, 130, 50);
+      doc.text(`Order Date: __________`, 14, 57);
+      doc.text(`Customer: ${data['Name'] || ''}`, 14, 64);
+      doc.text(`Mobile: ${data['Mobile'] || ''}`, 14, 71);
+      doc.text(`Email: ${data['Email'] || 'N/A'}`, 14, 78);
+
+      const addr = `${data['Address'] || ''}, ${data['Landmark'] || ''}, ${data['Post office'] || ''}, ${data['District/City'] || ''}, ${data['State'] || ''} - ${data['Pincode'] || ''}`;
+      doc.text("Shipping Address:", 14, 85);
+      doc.setFontSize(9);
+      doc.text(doc.splitTextToSize(addr, 180), 14, 90);
+
+      doc.setFontSize(10);
+      doc.text("Product", 14, 120);
+      doc.text("Variant", 84, 120);
+      doc.text("Amount Paid", 124, 120);
+      doc.text("COD Due", 164, 120);
+
+      doc.setFontSize(10);
+      doc.text(data['Product'] || '', 14, 127);
+      doc.text(data['Variant'] || '', 84, 127);
+      doc.text(data['Amount paid'] || '0', 124, 127);
+      doc.text(data['Rest Amount on Delivery'] || '0', 164, 127);
+
+      doc.setFontSize(10);
+      doc.text(`GST: NIL`, 14, 140);
+      doc.text("Estimated Delivery: 5 to 10 days depending on location", 14, 147);
+      doc.text(`Tracking Link: ${trackingURL}`, 14, 154);
+
+      // Generate barcode from Order ID
+      if (data['Order ID']) {
+        JsBarcode("#barcode", data['Order ID'], {
+          format: "CODE128",
+          width: 2,
+          height: 40,
+          displayValue: false
+        });
+
+        const svg = document.getElementById("barcode");
+        const svgData = new XMLSerializer().serializeToString(svg);
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const DOMURL = self.URL || self.webkitURL || self;
+        const img = new Image();
+        const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+        const url = DOMURL.createObjectURL(svgBlob);
+
+        img.onload = function () {
+          ctx.drawImage(img, 0, 0);
+          const imgData = canvas.toDataURL("image/png");
+          doc.addImage(img, 'PNG', 150, 15, 40, 15);
+          doc.save(`Invoice_${data['Order ID']}.pdf`);
+          DOMURL.revokeObjectURL(url);
+        };
+        img.src = url;
+      } else {
+        doc.save(`Invoice.pdf`);
+      }
+    }
+  </script>
+</body>
+</html>
