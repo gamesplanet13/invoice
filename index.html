@@ -1,107 +1,168 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
   <title>Games Planet Invoice Generator</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
   <style>
-    body { font-family: Arial; padding: 20px; background: #f5f5f5; }
-    h2 { margin-bottom: 5px; }
-    textarea { width: 100%; height: 200px; margin-bottom: 10px; }
-    button { padding: 10px 15px; font-size: 14px; }
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f8f8f8; }
+    textarea { width: 100%; height: 200px; font-size: 14px; margin-top: 10px; padding: 10px; }
+    button {
+      padding: 10px 20px; margin-top: 10px;
+      background: #007bff; color: white;
+      border: none; font-size: 16px; cursor: pointer;
+    }
+    button:hover { background: #0056b3; }
   </style>
 </head>
 <body>
-  <h2>Games Planet Final Invoice Generator</h2>
-  <textarea id="inputText" placeholder="Paste order details here..."></textarea>
-  <br>
-  <button onclick="generatePDF()">Download Invoice as PDF</button>
-  <svg id="barcode" style="display: none;"></svg>
+  <h2>📄 Games Planet – Final Invoice Generator (Clean Words Format)</h2>
+  <textarea id="input" placeholder="Paste WhatsApp order message here..."></textarea>
+  <button onclick="generateInvoice()">Generate PDF Invoice</button>
 
   <script>
-    async function generatePDF() {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      const input = document.getElementById('inputText').value.split('\n');
+    function parseInput(text) {
+      const lines = text.split('\n').map(line => line.trim());
       const data = {};
-      input.forEach(line => {
-        const [key, ...rest] = line.split(':');
-        if (key && rest.length) data[key.trim()] = rest.join(':').trim();
+      lines.forEach(line => {
+        const [key, ...rest] = line.split(":");
+        const value = rest.join(":").trim();
+        if (line.includes("Order ID")) data.orderId = value;
+        if (line.includes("Name")) data.name = value;
+        if (line.includes("Mobile") && !line.includes("Alt")) data.mobile = value;
+        if (line.includes("Alt Mobile")) data.altMobile = value || "-";
+        if (line.includes("Email")) data.email = value;
+        if (line.includes("Address")) data.address = value;
+        if (line.includes("Landmark")) data.landmark = value;
+        if (line.includes("Pincode")) data.pincode = value;
+        if (line.includes("State")) data.state = value;
+        if (line.includes("District") || line.includes("City")) data.city = value;
+        if (line.includes("Post office")) data.post = value;
+        if (line.includes("Product")) data.product = value;
+        if (line.includes("Variant")) data.variant = value;
+        if (line.includes("Base Price")) data.basePrice = value.replace("₹", "");
+        if (line.includes("Amount paid")) data.paid = value.replace("₹", "");
+        if (line.includes("COD Charges")) data.codCharges = value.replace("₹", "");
+        if (line.includes("Rest Amount on Delivery")) data.codDue = value.replace("₹", "");
+      });
+      data.mode = text.includes("Prepaid") ? "Prepaid" : "COD";
+      return data;
+    }
+
+    function numberToWords(n) {
+      const a = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+        "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+        "Seventeen", "Eighteen", "Nineteen"];
+      const b = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+      const numToWords = (num) => {
+        if (num < 20) return a[num];
+        if (num < 100) return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
+        if (num < 1000) return a[Math.floor(num / 100)] + " Hundred" + (num % 100 ? " and " + numToWords(num % 100) : "");
+        if (num < 100000) return numToWords(Math.floor(num / 1000)) + " Thousand" + (num % 1000 ? " " + numToWords(num % 1000) : "");
+        if (num < 10000000) return numToWords(Math.floor(num / 100000)) + " Lakh" + (num % 100000 ? " " + numToWords(num % 100000) : "");
+        return numToWords(Math.floor(num / 10000000)) + " Crore" + (num % 10000000 ? " " + numToWords(num % 10000000) : "");
+      };
+
+      return numToWords(Math.floor(n)) + " Rupees Only";
+    }
+
+    function generateInvoice() {
+      const { jsPDF } = window.jspdf;
+      const input = document.getElementById("input").value;
+      const d = parseInput(input);
+      const doc = new jsPDF();
+
+      // Header
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("Games Planet", 105, 15, null, null, "center");
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("Near Gurudwara Road, Civil Lines, Rampur, U.P – 244901", 105, 20, null, null, "center");
+      doc.text("Mobile: 7983624797 | GST: N/A", 105, 25, null, null, "center");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.text("TAX INVOICE", 105, 35, null, null, "center");
+
+      // Buyer + Invoice Info
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Invoice To:", 15, 45);
+      doc.setFont("helvetica", "normal");
+      doc.text(d.name, 15, 50);
+      doc.text(d.address, 15, 55);
+      doc.text(`${d.city || ""} - ${d.pincode}, ${d.state || ""}`, 15, 60);
+      doc.text(`Mobile: ${d.mobile}`, 15, 65);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Invoice No:", 140, 45);
+      doc.setFont("helvetica", "normal");
+      doc.text(d.orderId, 165, 45);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Date:", 140, 50);
+      doc.setFont("helvetica", "normal");
+      doc.text(new Date().toLocaleDateString(), 165, 50);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Payment Mode:", 140, 55);
+      doc.setFont("helvetica", "normal");
+      doc.text(d.mode, 165, 55);
+
+      // Item Table
+      doc.autoTable({
+        startY: 70,
+        head: [['Sr No', 'Item Description', 'HSN', 'Qty', 'Rate', 'Amount']],
+        body: [
+          ['1', `${d.product} - ${d.variant}`, '', '1', `₹${d.basePrice}`, `₹${d.basePrice}`],
+        ],
+        theme: 'grid',
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [220, 220, 220] },
       });
 
-      const awb = data['AWB'] || 'Pending';
-      const trackingURL = awb !== 'Pending' ? `https://www.delhivery.com/track/package/${awb}` : 'Not Generated Yet';
+      const total = parseFloat(d.basePrice || 0);
+      const paid = parseFloat(d.paid || 0);
+      const due = parseFloat(d.codDue || (total - paid));
+      const totalWords = numberToWords(total);
 
-      doc.setFontSize(14);
-      doc.text("GAMES PLANET", 105, 15, { align: "center" });
-      doc.setFontSize(10);
-      doc.text("Rampur, Uttar Pradesh - 244901", 105, 22, { align: "center" });
-      doc.text("Email: gamesplanet.7983624797@gmail.com | Phone: 7983624797", 105, 28, { align: "center" });
-
-      doc.setFontSize(12);
-      doc.text("TAX INVOICE", 105, 36, { align: "center" });
-
-      doc.setFontSize(10);
-      doc.text(`Order ID: ${data['Order ID'] || ''}`, 14, 50);
-      doc.text(`AWB Number: ${awb}`, 130, 50);
-      doc.text(`Order Date: __________`, 14, 57);
-      doc.text(`Customer: ${data['Name'] || ''}`, 14, 64);
-      doc.text(`Mobile: ${data['Mobile'] || ''}`, 14, 71);
-      doc.text(`Email: ${data['Email'] || 'N/A'}`, 14, 78);
-
-      const addr = `${data['Address'] || ''}, ${data['Landmark'] || ''}, ${data['Post office'] || ''}, ${data['District/City'] || ''}, ${data['State'] || ''} - ${data['Pincode'] || ''}`;
-      doc.text("Shipping Address:", 14, 85);
-      doc.setFontSize(9);
-      doc.text(doc.splitTextToSize(addr, 180), 14, 90);
-
-      doc.setFontSize(10);
-      doc.text("Product", 14, 120);
-      doc.text("Variant", 84, 120);
-      doc.text("Amount Paid", 124, 120);
-      doc.text("COD Due", 164, 120);
-
-      doc.setFontSize(10);
-      doc.text(data['Product'] || '', 14, 127);
-      doc.text(data['Variant'] || '', 84, 127);
-      doc.text(data['Amount paid'] || '0', 124, 127);
-      doc.text(data['Rest Amount on Delivery'] || '0', 164, 127);
-
-      doc.setFontSize(10);
-      doc.text(`GST: NIL`, 14, 140);
-      doc.text("Estimated Delivery: 5 to 10 days depending on location", 14, 147);
-      doc.text(`Tracking Link: ${trackingURL}`, 14, 154);
-
-      // Generate barcode from Order ID
-      if (data['Order ID']) {
-        JsBarcode("#barcode", data['Order ID'], {
-          format: "CODE128",
-          width: 2,
-          height: 40,
-          displayValue: false
-        });
-
-        const svg = document.getElementById("barcode");
-        const svgData = new XMLSerializer().serializeToString(svg);
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        const DOMURL = self.URL || self.webkitURL || self;
-        const img = new Image();
-        const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-        const url = DOMURL.createObjectURL(svgBlob);
-
-        img.onload = function () {
-          ctx.drawImage(img, 0, 0);
-          const imgData = canvas.toDataURL("image/png");
-          doc.addImage(img, 'PNG', 150, 15, 40, 15);
-          doc.save(`Invoice_${data['Order ID']}.pdf`);
-          DOMURL.revokeObjectURL(url);
-        };
-        img.src = url;
-      } else {
-        doc.save(`Invoice.pdf`);
+      let y = doc.lastAutoTable.finalY + 10;
+      if (y > 250) {
+        doc.addPage();
+        y = 20;
       }
+
+      doc.setFont("helvetica", "bold");
+      doc.text(`Total Amount Before Tax: ₹${total.toFixed(2)}`, 15, y); y += 6;
+      doc.text(`CGST (0%): ₹0.00`, 15, y); y += 6;
+      doc.text(`SGST (0%): ₹0.00`, 15, y); y += 6;
+      doc.text(`Invoice Total: ₹${total.toFixed(2)}`, 15, y); y += 8;
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Amount in Words:", 15, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(totalWords, 60, y); y += 10;
+
+      doc.setFont("helvetica", "bold");
+      doc.text(`UPI for Payment:`, 15, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(`paytmqr5hyx5o@ptys`, 60, y); y += 10;
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Declaration:", 15, y); y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.text("We declare that this invoice shows the actual price of the goods and all particulars are true and correct.", 15, y, { maxWidth: 180 }); y += 15;
+
+      doc.setFont("helvetica", "bold");
+      doc.text("For Games Planet", 150, y); y += 6;
+      doc.setFont("helvetica", "normal");
+      doc.text("Authorized Signatory", 150, y);
+
+      doc.save(`GamesPlanet_Invoice_${d.orderId}.pdf`);
     }
   </script>
 </body>
